@@ -1,8 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df = pd.read_csv(r"result/DGRW.GPOE.hold_all.csv")
-df1 = pd.read_csv(r"result/DGRW.GPOE_mult.hold_all.csv")
+df = pd.read_csv(r"../TEST.hold_all.csv")
+df1 = pd.read_csv(r"../result/DGRW.GPOE.hold_all.csv")
 df.set_index("Date",inplace=True)
 df1.set_index("Date",inplace=True)
 df = df.astype(float)

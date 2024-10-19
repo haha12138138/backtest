@@ -1,6 +1,4 @@
-import pandas as pd
-
-from fmp import *
+from FMP.fmp import *
 
 class Stock_Universe:
     def __init__(self):

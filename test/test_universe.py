@@ -1,4 +1,4 @@
-import Universe
+from src import Universe
 
 if __name__ == "__main__":
     uni = Universe.Stock_Universe()
