@@ -1,31 +1,21 @@
-from typing import Union
-
 #import deprecation
 
-from FMP.fmp import Income_statement_entry, Balance_statement_entry, Cashflow_statement_entry, Financial_ratio_entry, \
-    Price_entry
-
-from Universe import Stock_Universe
 from Datahandler import DataHandler
+from FMP.fmp import Price_entry
 from Portfolio import Portfolio
-
-
-
+from Universe import Stock_Universe
 
 
 class Backtester:
-    def __init__(self, universe:Stock_Universe, start_date: str, end_date: str, initial_cash: int,
-                 data_requirements: list[Union[Income_statement_entry
-                 , Balance_statement_entry, Cashflow_statement_entry
-                 , Financial_ratio_entry, Price_entry]], strategy):
-
+    def __init__(self, universe: Stock_Universe, start_date: str, end_date: str, initial_cash: int, strategy):
+        self.strategy = strategy()
         self.data_handler = DataHandler(universe
-                                        , start_date, end_date, data_requirements)
+                                        , start_date, end_date, strategy)
         self.data_handler.loaddata()
+        self.strategy.add_data_handler(self.data_handler)
         self.universe = universe
         self.benchmark = universe.get_universe("benchmark")
         self.portfolio = Portfolio(initial_cash, universe, self.benchmark)
-        self.strategy = strategy(self.data_handler, universe)  # Strategy(self.data_handler, universe)
 
     def run_backtest(self):
         while not self.data_handler.is_data_end():

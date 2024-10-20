@@ -1,19 +1,21 @@
-from FMP.fmp import *
-from FMP.main import stock_database
-from Universe import Stock_Universe
-import pandas as pd
 import numpy as np
+import pandas as pd
 from Strategy import Strategy, rebalance
-class MOM_STRATEGY(Strategy):
-    def __init__(self, data_handler, universe):
 
-        super().__init__(data_handler, universe)
+from FMP.fmp import *
+
+
+class MOM_STRATEGY(Strategy):
+    inherent_dependencies = Strategy.inherent_dependencies
+
+    def __init__(self):
+
+        super().__init__()
 
     @rebalance(20)
     def generate_signals(self):
         def z_score(df):
             return (df - df.mean()) / df.std()
-
         def calc_mom_score(series_A):
             # Step 1: Create Series B based on the rules given for Series A
             series_B = series_A  # series_A.clip(lower=-3, upper=3)
@@ -58,7 +60,7 @@ class MOM_STRATEGY(Strategy):
         d_ret = close_prices.diff().dropna()
         comp_mom_z = sharpe_mom(close_prices,d_ret,abs_filter=False)
         # comp_mom = mom12
-        uni = self.universe
+        uni = self.data_handler.get_dynamic_universe()
         mom_score = calc_mom_score(comp_mom_z[uni])
         ranked_securities = list(mom_score.rank(ascending=True).sort_values(ascending=False).index)
 
