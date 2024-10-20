@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+
+from FMP.fmp import *
+
 
 def rebalance(rebalance_period):
     def decorator(func):
@@ -18,11 +22,31 @@ def rebalance(rebalance_period):
         return wrapper
 
     return decorator
-class Strategy:
 
-    def __init__(self, data_handler, universe):
+
+@dataclass
+class Strategy_dependence:
+    dependence_name: Union[
+        Price_entry, Financial_ratio_entry, Balance_statement_entry, Cashflow_statement_entry, Income_statement_entry]
+    period: Datapoint_period
+    num_of_data_needed: int
+
+    def __init__(self, dependence_name, period, num_of_data_needed):
+        self.dependence_name = dependence_name
+        self.period = period
+        self.num_of_data_needed = num_of_data_needed
+
+
+class Strategy:
+    inherent_dependencies = [Strategy_dependence(Price_entry.open, 'd', 1),
+                             Strategy_dependence(Price_entry.adjClose, 'd', 1),
+                             Strategy_dependence(Price_entry.close, 'd', 1)]
+
+    def __init__(self):
+        self.data_handler = None
+
+    def add_data_handler(self, data_handler):
         self.data_handler = data_handler
-        self.universe = universe
 
     def generate_signals(self):
         pass

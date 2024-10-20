@@ -1,12 +1,15 @@
 import datetime
+import logging
 import warnings
 from enum import Enum
 from typing import Optional, Union
-import logging
-import requests
+
 import pandas as pd
-from common_util import get_filtered_date_data, merge_data_by_date
+import requests
 from dateutil.relativedelta import relativedelta
+
+from common_util import merge_data_by_date
+
 # some basic global variables
 API_KEY: str = "mZDI2HhRfp4QDHQ5KxGG3vvzwUpVUQRm"
 BASE_URL_v3: str = "https://financialmodelingprep.com/api/v3/"
@@ -319,10 +322,13 @@ STATISTICS_TYPE_VALUES: list = [
     "adx",
     "standardDeviation",
 ]
+
+
 class Mkt_index(Enum):
-    sp500="sp500_constituent"
-    dowj="dowjones_constituent"
-    nasdaq="nasdaq_constituent"
+    sp500 = "sp500_constituent"
+    dowj = "dowjones_constituent"
+    nasdaq = "nasdaq_constituent"
+
 
 class Financial_ratio_entry(Enum):
     date = "date"
@@ -343,7 +349,8 @@ class Financial_ratio_entry(Enum):
     ROCE = "returnOnCapitalEmployed"
     debt_over_asset = "debtRatio"
     debt_over_equity = "debtEquityRatio"
-    long_term_debt_to_cap = "longTermDebtToCapitalization" #long-term debt by total available capital (long-term debt, preferred stock, and common stock).
+    long_term_debt_to_cap = "longTermDebtToCapitalization"  # long-term debt by total available capital (long-term
+    # debt, preferred stock, and common stock).
     debt_to_cap = "totalDebtToCapitalization"
     interest_coverage = "interestCoverage"
     cashflow_over_debt = "cashFlowToDebtRatio"
@@ -361,8 +368,8 @@ class Financial_ratio_entry(Enum):
     FCF_over_operating_cashflow = "freeCashFlowOperatingCashFlowRatio"
     cashflow_coverage = "cashFlowCoverageRatios"  # operating cash flow / total debt
     short_term_coverage = "shortTermCoverageRatios"
-    capex_coverage = "capitalExpenditureCoverageRatio" #  operating cash flow / capex
-    dividend_payout = "dividendPayoutRatio" # dividend / net_income
+    capex_coverage = "capitalExpenditureCoverageRatio"  # operating cash flow / capex
+    dividend_payout = "dividendPayoutRatio"  # dividend / net_income
     PB = "priceToBookRatio"
     PS = "priceToSalesRatio"
     PE = "priceEarningsRatio"
@@ -373,6 +380,7 @@ class Financial_ratio_entry(Enum):
     dividend_yield = "dividendYield"
     EV_multiple = "enterpriseValueMultiple"
     price_fair_value = "priceFairValue"
+
 
 class Income_statement_entry(Enum):
     date = "date"
@@ -404,6 +412,7 @@ class Income_statement_entry(Enum):
     EPS_diluted = "epsdiluted"
     outstanding_shares_weighted_avg = "weightedAverageShsOut"
     outstanding_diluted_shares_weighted_avg = "weightedAverageShsOutDil"
+
 
 class Balance_statement_entry(Enum):
     date = "date"
@@ -488,6 +497,8 @@ class Cashflow_statement_entry(Enum):
     operating_cashflow = "operatingCashFlow"
     capex = "capitalExpenditure"
     FCF = "freeCashFlow"
+
+
 class Price_entry(Enum):
     date = "date"
     open = "open"
@@ -496,9 +507,16 @@ class Price_entry(Enum):
     close = "close"
     adjClose = "adjClose"
     volume = "volume"
-    change= "change"
+    change = "change"
     change_percent = "changePercent"
     vwap = "vwap"
+
+
+class Datapoint_period(Enum):
+    day = 0
+    quarter = 1
+    annual = 2
+
 
 class Financial_statement_period(Enum):
     annual = "annual"
@@ -583,7 +601,7 @@ def __api_access(url):
 #     res = __api_access(url)
 #     return len(res) != 0
 
-def fmp_check_ticker_exists(ticker:str, apikey:str, only_active_trading=False):
+def fmp_check_ticker_exists(ticker: str, apikey: str, only_active_trading=False):
     url = f"{BASE_URL_v3}/profile/{ticker}?apikey={apikey}"
     res = __api_access(url)
     if len(res) == 0:
@@ -594,71 +612,80 @@ def fmp_check_ticker_exists(ticker:str, apikey:str, only_active_trading=False):
     else:
         return True
 
-def fmp_get_industry(apikey:str):
+
+def fmp_get_industry(apikey: str):
     url = f"{BASE_URL_v4}/standard_industrial_classification/all?apikey={apikey}"
     res = __api_access(url)
     df = pd.DataFrame(res)
     df = df.set_index("symbol")
     return df
 
-def get_mkt_constituents(index:Mkt_index,apikey) -> tuple[str, list]:
+
+def get_mkt_constituents(index: Mkt_index, apikey) -> tuple[str, list]:
     url = f"{BASE_URL_v3}/{index.value}?apikey={apikey}"
     res = __api_access(url)
     df = pd.DataFrame(res)
-    #we only need, symbol, sector and subsector
+    # we only need, symbol, sector and subsector
     tickers = df["symbol"].values.tolist()
     return str(datetime.date.today()), tickers
 
-def construct_mkt_historical_constituents(index:Mkt_index, constituents,apikey):
+
+def construct_mkt_historical_constituents(index: Mkt_index, constituents, apikey):
     url_hist = f"{BASE_URL_v3}/historical/{index.value}?apikey={apikey}"
     res = __api_access(url_hist)
-    last_change_date=constituents[0]
-    all_historical_constituents =[]
+    last_change_date = constituents[0]
+    all_historical_constituents = []
     next_constituent_values = dict()
     for change in res:
-        change_date=change["date"]
+        change_date = change["date"]
         change_symbol = change["symbol"]
         if change_date != last_change_date:
             if len(all_historical_constituents) == 0:
                 all_historical_constituents = [constituents]
-                next_constituent_values = {i:None for i in constituents[1]}
+                next_constituent_values = {i: None for i in constituents[1]}
                 last_change_date = change_date
             else:
-                all_historical_constituents.append(((datetime.datetime.strptime(last_change_date,"%Y-%m-%d")-datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-                                                    ,list(next_constituent_values.keys())))
+                all_historical_constituents.append(((datetime.datetime.strptime(last_change_date,
+                                                                                "%Y-%m-%d") - datetime.timedelta(
+                    days=1)).strftime("%Y-%m-%d")
+                                                    , list(next_constituent_values.keys())))
                 last_change_date = change_date
         if change["removedTicker"] == "":
-            #added into the index on this date. we need to remove it from the constituents
+            # added into the index on this date. we need to remove it from the constituents
             del next_constituent_values[change_symbol]
         else:
-            next_constituent_values[change_symbol]=None
+            next_constituent_values[change_symbol] = None
     return all_historical_constituents
-def fmp_get_etf_holdings(ticker:str, apikey:str, start_date:Optional[str]=None, end_date:Optional[str]=None, highest_N=10):
+
+
+def fmp_get_etf_holdings(ticker: str, apikey: str, start_date: Optional[str] = None, end_date: Optional[str] = None,
+                         highest_N=10):
     url = f"{BASE_URL_v4}etf-holdings/portfolio-date?symbol={ticker}&apikey={apikey}"
     res = __api_access(url)
-    list_of_dates = [pd.to_datetime(i["date"],format="%Y-%m-%d") for i in res]
-    start_date = pd.to_datetime(start_date,format= "%Y-%m-%d")
-    end_date = pd.to_datetime(end_date,format="%Y-%m-%d")
-    list_of_date_in_date_range = list(filter(lambda x: (x>=start_date) and (x<=end_date), list_of_dates))
-    df_holding = pd.DataFrame(columns=["date","holdings"])
+    list_of_dates = [pd.to_datetime(i["date"], format="%Y-%m-%d") for i in res]
+    start_date = pd.to_datetime(start_date, format="%Y-%m-%d")
+    end_date = pd.to_datetime(end_date, format="%Y-%m-%d")
+    list_of_date_in_date_range = list(filter(lambda x: (x >= start_date) and (x <= end_date), list_of_dates))
+    df_holding = pd.DataFrame(columns=["date", "holdings"])
     if list_of_date_in_date_range != []:
         for date in list_of_date_in_date_range:
             url = f"{BASE_URL_v4}etf-holdings?date={date.strftime('%Y-%m-%d')}&symbol={ticker}&apikey={apikey}"
             res = __api_access(url)
-            df_res = pd.DataFrame(res)[["symbol","pctVal"]].sort_values(by="pctVal",ascending=False).iloc[0:highest_N]
+            df_res = pd.DataFrame(res)[["symbol", "pctVal"]].sort_values(by="pctVal", ascending=False).iloc[0:highest_N]
             holding_list = df_res["symbol"].values.tolist()
             holding_list = list(filter(lambda x: x is not None, holding_list))
-            df_holding.loc[len(df_holding)] = {"date":date, "holdings":holding_list}
+            df_holding.loc[len(df_holding)] = {"date": date, "holdings": holding_list}
     if start_date < min(list_of_date_in_date_range):
-        df_oldest_holdings =df_holding.loc[df_holding["date"] == min(list_of_date_in_date_range)]
+        df_oldest_holdings = df_holding.loc[df_holding["date"] == min(list_of_date_in_date_range)]
         oldest_holdings = df_oldest_holdings["holdings"].tolist()[0]
-        df_holding.loc[len(df_holding)] = {"date":start_date, "holdings": oldest_holdings}
+        df_holding.loc[len(df_holding)] = {"date": start_date, "holdings": oldest_holdings}
     return df_holding.set_index("date").sort_index(ascending=True)
 
-def fmp_get_mktcap_of_a_stock(ticker:str
+
+def fmp_get_mktcap_of_a_stock(ticker: str
                               , apikey: str
-                              , start:Optional[str]=None
-                              , end:Optional[str]=None):
+                              , start: Optional[str] = None
+                              , end: Optional[str] = None):
     """
     This is a function that gets daily mktcap of a stock.
     mktcap is calculated by multiplying the current share price by the number of outstanding shares.
@@ -670,15 +697,16 @@ def fmp_get_mktcap_of_a_stock(ticker:str
     in ascending order (oldest date first)
     """
     if (start is None) and (end is None):
-        #get only the latest data.
+        # get only the latest data.
         url = f"{BASE_URL_v3}/market-capitalization/{ticker}?apikey={apikey}"
         res = __api_access(url)
-        df = pd.DataFrame(pd.DataFrame(res).set_index("date")["marketCap"]).rename({"marketCap":ticker},axis="columns")
+        df = pd.DataFrame(pd.DataFrame(res).set_index("date")["marketCap"]).rename({"marketCap": ticker},
+                                                                                   axis="columns")
         return df
     elif (start is not None) and (end is not None):
         df_list = []
         url_base = f"{BASE_URL_v3}/historical-market-capitalization/{ticker}?"
-        start_date = datetime.datetime.strptime(start,"%Y-%m-%d")
+        start_date = datetime.datetime.strptime(start, "%Y-%m-%d")
         end_date = datetime.datetime.strptime(end, "%Y-%m-%d")
         temp_start_date = end_date - relativedelta(years=5)
         while temp_start_date > start_date:
@@ -699,9 +727,10 @@ def fmp_get_mktcap_of_a_stock(ticker:str
 
         if len(df_list) == 0:
             df_temp = pd.DataFrame(columns=[ticker])
-            df_temp.index.name="date"
+            df_temp.index.name = "date"
             df_list.append(df_temp)
-        return pd.DataFrame(pd.concat(df_list)).sort_index(ascending=True).rename({"marketCap":ticker},axis="columns")
+        return pd.DataFrame(pd.concat(df_list)).sort_index(ascending=True).rename({"marketCap": ticker}, axis="columns")
+
 
 def fmp_get_price_of_a_stock(ticker: str
                              , fields: list[Price_entry]
@@ -710,6 +739,7 @@ def fmp_get_price_of_a_stock(ticker: str
                              , end: Optional[str] = None
                              ) -> pd.DataFrame:
     """
+    :param fields:
     :param ticker: a string that contains the ticker of a stock
     :param start: start_date date of the data (if that day is holiday or weekend, it will be the first day after)
     :param end: end_date date of the data (if that day is holiday or weekend, it will be the first day before)
@@ -739,7 +769,10 @@ def fmp_get_price_of_a_stock(ticker: str
 
 
 def __fmp_get_statement(ticker: str
-                        , fields: Union[list[Income_statement_entry], list[Balance_statement_entry], list[Cashflow_statement_entry], list[Financial_ratio_entry]]
+                        , type: str
+                        , fields: Union[
+            list[Income_statement_entry], list[Balance_statement_entry], list[Cashflow_statement_entry], list[
+                Financial_ratio_entry]]
                         , apikey: str
                         , start: Optional[str] = None
                         , end: Optional[str] = None
@@ -751,13 +784,13 @@ def __fmp_get_statement(ticker: str
     """
     print(fields)
     # check the type of field.
-    if type(fields[0]) == Income_statement_entry:
+    if type == "I":
         url = f"{BASE_URL_v3}/income-statement/{ticker}?period={period.value}&apikey={apikey}"
-    elif type(fields[0]) == Balance_statement_entry:
+    elif type == "B":
         url = f"{BASE_URL_v3}/balance-sheet-statement/{ticker}?period={period.value}&apikey={apikey}"
-    elif type(fields[0]) == Cashflow_statement_entry:
+    elif type == "C":
         url = f"{BASE_URL_v3}/cash-flow-statement/{ticker}?period={period.value}&apikey={apikey}"
-    elif type(fields[0]) == Financial_ratio_entry:
+    elif type == "R":
         url = f"{BASE_URL_v3}/ratios/{ticker}?period={period.value}&apikey={apikey}"
     else:
         raise ValueError(
@@ -768,20 +801,20 @@ def __fmp_get_statement(ticker: str
         df = pd.DataFrame(res)
         df['date'] = pd.to_datetime(df['date'])
         df = df.set_index('date')
-        df.sort_index(ascending=False,inplace=True)
+        df.sort_index(ascending=False, inplace=True)
         if start is None:
-            df = df[df.index<=end][:count]
+            df = df[df.index <= end][:count]
         elif end is None:
             df = df[df.index >= start][-(count):]
         else:
-            df = df[(df.index >=start) & (df.index <=end)]
+            df = df[(df.index >= start) & (df.index <= end)]
         # df = get_filtered_date_data(df
         #                             , data_start_date=start_date, data_end_date=end_date, count=count
         #                             , freq="3M" if period == Financial_statement_period.quarter else "12M")
-        #fetch necessary fields
+        # fetch necessary fields
         df = df[field_name]
         # convert the name to enum name
-        df.rename(columns={x.value: x.name for x in fields},inplace=True)
+        df.rename(columns={x.value: x.name for x in fields}, inplace=True)
         df.columns = pd.MultiIndex.from_product([[res[0]['symbol']], df.columns])
     else:
         df = pd.DataFrame(data=None, columns=field_name)
@@ -791,7 +824,8 @@ def __fmp_get_statement(ticker: str
 
 
 def fmp_get_fundamentals_of_a_stock(ticker: str
-                                    , fields: list[Union[Income_statement_entry, Balance_statement_entry, Cashflow_statement_entry, Financial_ratio_entry]]
+                                    , fields: list[
+            Union[Income_statement_entry, Balance_statement_entry, Cashflow_statement_entry, Financial_ratio_entry]]
                                     , apikey: str
                                     , start: Optional[str] = None
                                     , end: Optional[str] = None
@@ -817,22 +851,21 @@ def fmp_get_fundamentals_of_a_stock(ticker: str
     # group field by their type
     field_type: dict = {"I": [], "B": [], "C": [], "R": []}
     for field in fields:
-        if type(field) == Income_statement_entry:
+        if field.name in Income_statement_entry.__members__.keys():
             field_type['I'].append(field)
-        elif type(field) == Balance_statement_entry:
+        elif field.name in Balance_statement_entry.__members__.keys():
             field_type['B'].append(field)
-        elif type(field) == Cashflow_statement_entry:
+        elif field.name in Cashflow_statement_entry.__members__.keys():
             field_type['C'].append(field)
-        elif type(field) == Financial_ratio_entry:
+        elif field.name in Financial_ratio_entry.__members__.keys():
             field_type['R'].append(field)
         else:
             raise ValueError("unrecognized field type: " + str(type(field)))
     dfs = []
     for k, v in field_type.items():
-        if v == [] :
+        if v == []:
             continue
-        dfs.append(__fmp_get_statement(ticker, fields=v, apikey=apikey
+        dfs.append(__fmp_get_statement(ticker, type=k, fields=v, apikey=apikey
                                        , start=start, end=end, count=count
                                        , period=period))
     return merge_data_by_date(dfs)
-
