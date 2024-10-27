@@ -26,9 +26,12 @@ class DataHandler:
         max_num_needed_for_quarterly_data = 1
         annual_entries = []
         max_num_needed_for_annually_data = 1
+        max_num_needed_for_daily_data = 1
         for dependency in strategy.inherent_dependencies:
             if isinstance(dependency.dependence_name, Price_entry):
                 daily_entries.append(dependency.dependence_name)
+                max_num_needed_for_daily_data = max(max_num_needed_for_daily_data,
+                                                    dependency.num_of_data_needed)
             else:
                 if dependency.period == Datapoint_period.annual:
                     annual_entries.append(dependency.dependence_name)
@@ -40,7 +43,7 @@ class DataHandler:
                                                             dependency.num_of_data_needed)
                 else:
                     ValueError(f"{dependency} is not correct")
-        return daily_entries, quarter_entries, annual_entries, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data
+        return daily_entries, quarter_entries, annual_entries, max_num_needed_for_daily_data, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data
 
     def __calc_start_date_for_fundamental_data(self, start_time, max_num_needed_for_quarterly_data,
                                                max_num_needed_for_annually_data):
@@ -48,6 +51,10 @@ class DataHandler:
         return (datetime.datetime.strptime(start_time, "%Y-%m-%d") - datetime.timedelta(extra_days_needed)).strftime(
             "%Y-%m-%d")
 
+    def __calc_start_date_for_price_data(self, start_time, max_num):
+        extra_days_needed = max_num + 5  # hope this is large enough to cover weekend and holidays
+        return (datetime.datetime.strptime(start_time, "%Y-%m-%d") - datetime.timedelta(extra_days_needed)).strftime(
+            "%Y-%m-%d")
     def loaddata(self):
 
         # 这里调用外部API获取数据，返回一个dict=None
@@ -57,14 +64,16 @@ class DataHandler:
         #                                                     , Cashflow_statement_entry
         #                                                     , Income_statement_entry
         #                                                     , Financial_ratio_entry)), self.data_requirements))
-        price_entries, quarter_entries, annual_entries, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data = self.__parse_strategy_dependencies(
+        price_entries, quarter_entries, annual_entries, max_num_needed_for_daily_data, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data = self.__parse_strategy_dependencies(
             self.strategy)
         self.universe.load_data(self.start_date, self.end_date)
         if price_entries != []:
+            start_date_for_daily_data = self.__calc_start_date_for_price_data(self.start_date,
+                                                                              max_num_needed_for_daily_data)
             df_price = db.get_stock_price(self.universe.get_total_universe()
                                           , fields=price_entries
                                           , end_date=self.end_date
-                                          , start_date=self.start_date)
+                                          , start_date=start_date_for_daily_data)
         else:
             df_price = pd.DataFrame()
 
@@ -113,9 +122,7 @@ class DataHandler:
         self.current_time_index = 0
         self.current_date = self.time_index[self.current_time_index]
 
-    def get_dynamic_universe(self, name=None):
-        if name is None:
-            name = "default_group"
+    def get_dynamic_universe(self, name="default_group"):
         df = self.universe.get_universe(name)
         df = df[df.index < self.current_date]
         return df["holdings"].values.tolist()[-1]
