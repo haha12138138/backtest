@@ -568,19 +568,24 @@ def __api_access(url):
                 logging.warning("Response appears to have no data.  Returning empty List.")
             not_finish = False
         except requests.Timeout:
-            logging.error(f"Connection to {url} timed out.")
             time.sleep(0.01)
             retry += 1
             if retry > 5:
                 not_finish = False
+                logging.error(f"Connection to {url} timed out.")
             else:
                 not_finish = True
         except requests.ConnectionError:
-            logging.error(
-                f"Connection to {url} failed:  DNS failure, refused connection or some other connection related "
-                f"issue."
-            )
-            not_finish = False
+            time.sleep(0.01)
+            retry += 1
+            if retry > 5:
+                not_finish = False
+                logging.error(
+                    f"Connection to {url} failed:  DNS failure, refused connection or some other connection related "
+                    f"issue."
+                )
+            else:
+                not_finish = True
         except requests.TooManyRedirects:
             logging.error(
                 f"Request to {url} exceeds the maximum number of predefined redirections."
