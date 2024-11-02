@@ -1,5 +1,7 @@
 from typing import Type
 
+import numpy as np
+
 from FMP.fmp import *
 from FMP.main import stock_database
 from Strategy import Strategy
@@ -43,7 +45,8 @@ class DataHandler:
                                                             dependency.num_of_data_needed)
                 else:
                     ValueError(f"{dependency} is not correct")
-        return daily_entries, quarter_entries, annual_entries, max_num_needed_for_daily_data, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data
+        return list(set(daily_entries)), list(set(quarter_entries)), list(
+            set(annual_entries)), max_num_needed_for_daily_data, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data
 
     def __calc_start_date_for_fundamental_data(self, start_time, max_num_needed_for_quarterly_data,
                                                max_num_needed_for_annually_data):
@@ -66,16 +69,13 @@ class DataHandler:
         #                                                     , Financial_ratio_entry)), self.data_requirements))
         price_entries, quarter_entries, annual_entries, max_num_needed_for_daily_data, max_num_needed_for_quarterly_data, max_num_needed_for_annually_data = self.__parse_strategy_dependencies(
             self.strategy)
-        self.universe.load_data(self.start_date, self.end_date)
-        if price_entries != []:
-            start_date_for_daily_data = self.__calc_start_date_for_price_data(self.start_date,
-                                                                              max_num_needed_for_daily_data)
-            df_price = db.get_stock_price(self.universe.get_total_universe()
+        start_date_for_daily_data = self.__calc_start_date_for_price_data(self.start_date,
+                                                                          max_num_needed_for_daily_data)
+        self.universe.load_data(start_date_for_daily_data, self.end_date)
+        df_price = db.get_stock_price(self.universe.get_total_universe()
                                           , fields=price_entries
                                           , end_date=self.end_date
                                           , start_date=start_date_for_daily_data)
-        else:
-            df_price = pd.DataFrame()
 
         start_date_for_fundamentals = self.__calc_start_date_for_fundamental_data(self.start_date,
                                                                                   max_num_needed_for_quarterly_data,
@@ -116,11 +116,14 @@ class DataHandler:
 
         self.data = data_dict
         self.time_index = self.data['price'].index
+        self.current_date = datetime.datetime.strptime(self.start_date,
+                                                       "%Y-%m-%d")  # self.time_index[self.current_time_index]
+        self.current_time_index = np.where(self.time_index <= self.current_date)[0][-1]
         self.current_date = self.time_index[self.current_time_index]
-
     def reset(self):
         self.current_time_index = 0
-        self.current_date = self.time_index[self.current_time_index]
+        self.current_date = datetime.datetime.strptime(self.start_date,
+                                                       "%Y-%m-%d")  #self.time_index[self.current_time_index]
 
     def get_dynamic_universe(self, name="default_group"):
         df = self.universe.get_universe(name)
