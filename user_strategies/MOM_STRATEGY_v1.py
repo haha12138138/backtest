@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import statsmodels.api as sm
 
 from Backtester import Backtester
@@ -20,7 +21,6 @@ class MOM_STRATEGY(Strategy):
     def generate_signals(self):
         def z_score(df):
             return (df - df.mean()) / df.std()
-
         def msci_mom_normalize(series_A):
             # Step 1: Create Series B based on the rules given for Series A
             series_B = series_A  # series_A.clip(lower=-3, upper=3)
@@ -37,23 +37,20 @@ class MOM_STRATEGY(Strategy):
             series_B_transformed = series_B.apply(update_value)
 
             return series_B_transformed
-
         def sharpe_mom(prices):
             d_ret = prices.diff().dropna()
             std = d_ret.std()
             raw_mom = prices.iloc[-1] / prices.iloc[0]
             return raw_mom / std
-
         def resid_mom(asset_prices, mkt_prices):
             log_d_ret_mkt = np.log((mkt_prices / mkt_prices.shift(1)).dropna())
             log_d_ret_asset = np.log((asset_prices / asset_prices.shift(1)).dropna())
 
             # 2. 定义回归函数，返回残差
             def get_residuals(y, X):
-                X = sm.add_constant(X)
+                # X = sm.add_constant(X)
                 model = sm.OLS(y, X).fit()
                 return model.resid
-
             # 3. 对每个资产的收益率进行回归，得到残差
             residuals = log_d_ret_asset.apply(lambda y: get_residuals(y, log_d_ret_mkt), axis=0)
             # 4. 计算残差动量：残差的均值除以标准差
@@ -72,12 +69,11 @@ class MOM_STRATEGY(Strategy):
         asset_uni = self.data_handler.get_dynamic_universe()
         mkt_uni = self.data_handler.get_dynamic_universe(name="benchmark")
         asset_uni = list(set(asset_uni).intersection(set(close_prices.iloc[0].index)))
-        # mom = resid_mom(close_prices[asset_uni],close_prices[mkt_uni])
-        mom = sharpe_mom(close_prices[asset_uni])
-        mom_norm = msci_mom_normalize(z_score(mom))
+        mom = resid_mom(close_prices[asset_uni], close_prices[mkt_uni])
+        # mom = sharpe_mom(close_prices[asset_uni])
+        # mom_norm = msci_mom_normalize(z_score(mom))
         ranked_securities = list(mom.rank(ascending=True).sort_values(ascending=False).index)
         M = 6
-
         def geometric_weights(N, M):
             """
             Calculate geometric weights for M selected stocks from a total of N stocks.
@@ -100,14 +96,12 @@ class MOM_STRATEGY(Strategy):
             normalized_weights = weights / np.sum(weights)
             return normalized_weights
 
-        # w = geometric_weights(len(ranked_securities),M)
+        w = geometric_weights(len(ranked_securities), M)
         signals = {}
-        w = mom_norm[ranked_securities[0:M]] / mom_norm[ranked_securities[0:M]].sum()
         for s, w1 in zip(ranked_securities[0:M], w):
             signals[s] = w1
 
         return signals
-
 
 if __name__ == "__main__":
     # 使用示例
@@ -127,6 +121,5 @@ if __name__ == "__main__":
                             , strategy=MOM_STRATEGY)
     backtester.run_backtest()
     backtester.portfolio.position_history.set_index("Date").to_csv(
-        r"..\results\ETF_ROTATION\XLK_XLE_XLV.sharpe.30pick6.msci.holdings.csv")
-    backtester.portfolio.history.set_index("Date").to_csv(
-        r"..\results\ETF_ROTATION\XLK_XLE_XLV.sharpe.30pick6.hold_all.msci.csv")
+        r"..\results\ETF_ROTATION\XLK_XLE_XLV.resid_no_a.30pick6.holdings.csv")
+    backtester.portfolio.history.set_index("Date").to_csv(r"..\results\ETF_ROTATION\XLK_XLE_XLV.resid_no_a.30pick6.csv")
