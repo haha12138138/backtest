@@ -673,6 +673,7 @@ def fmp_get_etf_holdings(ticker: str, apikey: str, start_date: Optional[str] = N
     list_of_date_in_date_range = list(filter(lambda x: (x >= start_date) and (x <= end_date), list_of_dates))
     df_holding = pd.DataFrame(columns=["date", "holdings"])
     verified_list = []
+    failed_list =[]
     if list_of_date_in_date_range != []:
         for date in list_of_date_in_date_range:
             url = f"{BASE_URL_v4}etf-holdings?date={date.strftime('%Y-%m-%d')}&symbol={ticker}&apikey={apikey}"
@@ -680,12 +681,24 @@ def fmp_get_etf_holdings(ticker: str, apikey: str, start_date: Optional[str] = N
             df_res = pd.DataFrame(res)[["symbol", "pctVal"]].sort_values(by="pctVal", ascending=False).iloc[0:highest_N]
             holding_list = df_res["symbol"].values.tolist()
             holding_list = list(filter(lambda x: x is not None, holding_list))
+            verified_set = set(verified_list)
+            failed_set = set(failed_list)
             holding_list_temp = []
+
             for holding in holding_list:
-                if holding not in verified_list:
-                    if fmp_check_ticker_exists(holding,apikey) == True:
-                        verified_list.append(holding)
+                if holding in verified_set:
+                    holding_list_temp.append(holding)
+                elif holding not in failed_set:
+                    if fmp_check_ticker_exists(holding, apikey):
+                        verified_set.add(holding)
                         holding_list_temp.append(holding)
+                    else:
+                        failed_set.add(holding)
+
+            # Update the lists with the sets for future iterations
+            verified_list = list(verified_set)
+            failed_list = list(failed_set)
+
 
             df_holding.loc[len(df_holding)] = {"date": date, "holdings": holding_list_temp}
     if start_date < min(list_of_date_in_date_range):

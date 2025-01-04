@@ -63,7 +63,8 @@ class Portfolio:
         if self.orders != {}:
             for ticker in self.positions.keys():
                 price = prices.get(ticker, None)
-                if price is None or price == 0:
+                if price is None:
+                    Warning(f"Price of {ticker} is {price}! Which should not be correct, skip")
                     continue  # 跳过没有价格的数据
                 current_shares = self.positions.get(ticker, 0)
                 current_value = current_shares * price
@@ -73,7 +74,8 @@ class Portfolio:
 
             for ticker, target_percentage in self.orders.items():
                 price = prices.get(ticker, None)
-                if price is None or price == 0 or price == np.nan:
+                if price is None or price == 0 or np.isnan(price):
+                    Warning(f"Price of {ticker} is {price}! Which should not be correct, skip")
                     continue  # 跳过没有价格的数据
 
                 target_value = total_portfolio_value * target_percentage
