@@ -1,4 +1,6 @@
 import re
+from datetime import timedelta, datetime
+
 import pymysql
 import pandas as pd
 from sqlalchemy import create_engine
@@ -216,6 +218,87 @@ class FinancialDatabase:
 
         data = pd.read_sql(query, self.engine, params=params)
         return data
+
+    def adjust_for_weekends(self, date):
+        """
+        Adjusts the given date to the most recent working day if it falls on a weekend.
+        """
+        # If date is Saturday, move back to Friday
+        if date.weekday() == 5:  # Saturday
+            return date - timedelta(days=1)
+        # If date is Sunday, move back to Friday
+        elif date.weekday() == 6:  # Sunday
+            return date - timedelta(days=2)
+        # Otherwise, return the date unchanged
+        return date
+
+    def check_database_updates(self, tickers, start_date, end_date):
+        """
+        Checks if the database needs updates for the given tickers and date range,
+        considering weekends for adjustments, and tracks which tables/frequencies need updates.
+
+        Args:
+            tickers (list[str]): List of tickers to check.
+            start_date (str): Start date in 'YYYY-MM-DD' format.
+            end_date (str): End date in 'YYYY-MM-DD' format.
+
+        Returns:
+            dict[str, list[tuple]]: Dictionary where each key is a ticker, and each value
+                                    is a list of tuples specifying (table, frequency) needing updates.
+        """
+        results = {ticker: [] for ticker in tickers}
+
+        # Adjust end_date for weekends
+        end_date = self.adjust_for_weekends(datetime.strptime(end_date, "%Y-%m-%d"))
+
+        tables_with_frequencies = {
+            "prices": ["daily"],
+            "balance_sheets": ["quarterly", "annual"],
+            "income_statements": ["quarterly", "annual"],
+            "cash_flows": ["quarterly", "annual"]
+        }
+        for ticker in tickers:
+            for table in ["prices", "balance_sheets"]:
+                for frequency in tables_with_frequencies[table]:
+                    # Define table and time adjustments
+                    if frequency == "daily":
+                        time_adjustment = timedelta(days=0)  # No adjustment for daily data
+                    elif frequency == "quarterly":
+                        time_adjustment = timedelta(days=90)
+                    elif frequency == "annual":
+                        time_adjustment = timedelta(days=365)
+                    else:
+                        raise ValueError("Invalid frequency specified.")
+
+                    # Adjust the end date based on frequency
+                    adjusted_end_date = end_date - time_adjustment
+
+                    # Query the latest date for this ticker and frequency
+                    query = f"""
+                        SELECT MAX({"date" if table == "prices" else "period"}) AS latest_date
+                        FROM {table} t
+                        WHERE t.company_id = %s
+                        {"AND t.frequency = %s" if frequency != "daily" else ""}
+                    """
+                    params = []
+                    company_id = self.get_company_id(ticker)
+                    params.append(company_id)
+                    if frequency != "daily":
+                        params.append(frequency)
+
+                    # Execute query
+                    with self.connection.cursor() as cursor:
+                        cursor.execute(query, tuple(params))
+                        d = cursor.fetchone()
+
+                    latest_date = d[0] if d and d[0] else None
+
+                    # Determine if the table/frequency needs an update
+                    if not latest_date or latest_date < adjusted_end_date.date():
+                        results[ticker].append((table, frequency))
+
+
+        return results
 
     def close(self):
         """

@@ -140,6 +140,44 @@ class TestFinancialDatabase(unittest.TestCase):
         self.assertEqual(df["value"].iloc[0], 148.75, "The first value should match.")
         self.assertEqual(df["value"].iloc[1], 150.25, "The second value should match.")
 
+    def test_check_database_updates(self):
+        """
+        Test the check_database_updates method for identifying specific tables/frequencies needing updates.
+        """
+        # Insert test data
+        with self.db.connection.cursor() as cursor:
+            # Insert a test company
+            cursor.execute("INSERT INTO companies (ticker) VALUES ('TEST');")
+            company_id = cursor.lastrowid
+
+            # Insert daily data
+            cursor.execute("INSERT INTO prices (company_id, date, field, value) VALUES (%s, %s, %s, %s);",
+                           (company_id, "2023-12-29", "close", 150.25))  # Latest date is Friday
+
+            # Insert quarterly data
+            cursor.execute("""
+                        INSERT INTO balance_sheets (company_id, period, field, value, frequency)
+                        VALUES (%s, %s, %s, %s, %s);
+                    """, (company_id, "2023-09-30", "total_assets", 5100000.00, "quarterly"))
+
+            # Insert annual data
+            cursor.execute("""
+                        INSERT INTO balance_sheets (company_id, period, field, value, frequency)
+                        VALUES (%s, %s, %s, %s, %s);
+                    """, (company_id, "2022-12-31", "total_assets", 10000000.00, "annual"))
+
+        self.db.connection.commit()
+
+        tickers = ["TEST"]
+        start_date = "2023-01-01"
+        end_date = "2024-01-01"  # Sunday, adjusted to the latest working day (Friday, 2023-12-29)
+
+        updates = self.db.check_database_updates(tickers, start_date, end_date)
+
+        # Verify results
+        self.assertIn(("prices", "daily"), updates["TEST"], "Daily prices should need updates.")
+        self.assertIn(("balance_sheets", "quarterly"), updates["TEST"], "Quarterly balance sheets should need updates.")
+        self.assertIn(("balance_sheets", "annual"), updates["TEST"], "Annual balance sheets should need updates.")
 
 
 def suite():
@@ -155,7 +193,7 @@ def suite():
     suite.addTest(TestFinancialDatabase('test_upsert_data_prices'))
     suite.addTest(TestFinancialDatabase('test_upsert_data_balance_sheets'))
     suite.addTest(TestFinancialDatabase('test_get_data_prices'))
-
+    suite.addTest(TestFinancialDatabase('test_check_database_updates'))
     return suite
 
 if __name__ == "__main__":
