@@ -3,14 +3,16 @@ import logging
 import time
 import requests
 
+# some basic global variables
 API_KEY: str = "mZDI2HhRfp4QDHQ5KxGG3vvzwUpVUQRm"
 BASE_URL_v3: str = "https://financialmodelingprep.com/api/v3/"
 BASE_URL_v4: str = "https://financialmodelingprep.com/api/v4/"
 
+
 # some basic url functions
 CONNECT_TIMEOUT = 5
 READ_TIMEOUT = 30
-
+import time
 
 
 def rate_limits(limit_per_min):

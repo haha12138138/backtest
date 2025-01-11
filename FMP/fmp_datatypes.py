@@ -315,6 +315,28 @@ class Mkt_index(Enum):
     dowj = "dowjones_constituent"
     nasdaq = "nasdaq_constituent"
 
+class Forcast_entry(Enum):
+    date = "date"
+    low_forecast_rev = "estimatedRevenueLow"
+    high_forecast_rev = "estimatedRevenueHigh"
+    mid_forecast_rev = "estimatedRevenueAvg"
+    low_forecast_ebitda = "estimatedEbitdaLow"
+    high_forecast_ebitda = "estimatedEbitdaHigh"
+    mid_forecast_ebitda = "estimatedEbitdaAvg"
+    low_forecast_ebit = "estimatedEbitLow"
+    high_forecast_ebit = "estimatedEbitHigh"
+    mid_forecast_ebit = "estimatedEbitAvg"
+    low_forecast_net_income = "estimatedNetIncomeLow"
+    high_forecast_net_income = "estimatedNetIncomeHigh"
+    mid_forecast_net_income = "estimatedNetIncomeAvg"
+    low_forecast_sga_expense = "estimatedSgaExpenseLow"
+    high_forecast_sga_expense = "estimatedSgaExpenseHigh"
+    mid_forecast_sga_expense = "estimatedSgaExpenseAvg"
+    mid_forecast_eps = "estimatedEpsAvg"
+    high_forecast_eps = "estimatedEpsHigh"
+    low_forecast_eps = "estimatedEpsLow"
+    num_analyst_estimated_revenue = "numberAnalystEstimatedRevenue"
+    num_analyst_estimated_eps = "numberAnalystsEstimatedEps"
 
 class Financial_ratio_entry(Enum):
     date = "date"
@@ -375,7 +397,7 @@ class Income_statement_entry(Enum):
     revenue = "revenue"
     cost_of_revenue = "costOfRevenue"
     gross_profit = "grossProfit"
-    gross_profit_margin = "grossProfitRatio"
+    gross_profit_ratio = "grossProfitRatio"
     R_and_D_expense = "researchAndDevelopmentExpenses"
     admin_expense = "generalAndAdministrativeExpenses"
     sales_expense = "sellingAndMarketingExpenses"
@@ -507,4 +529,3 @@ class Datapoint_period(Enum):
 class Financial_statement_period(Enum):
     annual = "annual"
     quarter = "quarter"
-
