@@ -389,7 +389,7 @@ class Income_statement_entry(Enum):
     revenue = "revenue"
     cost_of_revenue = "costOfRevenue"
     gross_profit = "grossProfit"
-    gross_profit_margin = "grossProfitRatio"
+    gross_profit_ratio = "grossProfitRatio"
     R_and_D_expense = "researchAndDevelopmentExpenses"
     admin_expense = "generalAndAdministrativeExpenses"
     sales_expense = "sellingAndMarketingExpenses"
