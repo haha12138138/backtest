@@ -329,6 +329,28 @@ class Mkt_index(Enum):
     dowj = "dowjones_constituent"
     nasdaq = "nasdaq_constituent"
 
+class Forcast_entry(Enum):
+    date = "date"
+    low_forecast_rev = "estimatedRevenueLow"
+    high_forecast_rev = "estimatedRevenueHigh"
+    mid_forecast_rev = "estimatedRevenueAvg"
+    low_forecast_ebitda = "estimatedEbitdaLow"
+    high_forecast_ebitda = "estimatedEbitdaHigh"
+    mid_forecast_ebitda = "estimatedEbitdaAvg"
+    low_forecast_ebit = "estimatedEbitLow"
+    high_forecast_ebit = "estimatedEbitHigh"
+    mid_forecast_ebit = "estimatedEbitAvg"
+    low_forecast_net_income = "estimatedNetIncomeLow"
+    high_forecast_net_income = "estimatedNetIncomeHigh"
+    mid_forecast_net_income = "estimatedNetIncomeAvg"
+    low_forecast_sga_expense = "estimatedSgaExpenseLow"
+    high_forecast_sga_expense = "estimatedSgaExpenseHigh"
+    mid_forecast_sga_expense = "estimatedSgaExpenseAvg"
+    mid_forecast_eps = "estimatedEpsAvg"
+    high_forecast_eps = "estimatedEpsHigh"
+    low_forecast_eps = "estimatedEpsLow"
+    num_analyst_estimated_revenue = "numberAnalystEstimatedRevenue"
+    num_analyst_estimated_eps = "numberAnalystsEstimatedEps"
 
 class Financial_ratio_entry(Enum):
     date = "date"
@@ -900,3 +922,27 @@ def fmp_get_fundamentals_of_a_stock(ticker: str
                                        , start=start, end=end, count=count
                                        , period=period))
     return merge_data_by_date(dfs)
+
+def fmp_get_forecast(ticker: str
+                     , fields: list[Forcast_entry]
+                     , apikey:str
+                     , start: Optional[str] = None
+                     , count: Optional[int] = None
+                     , period: Financial_statement_period = Financial_statement_period.annual) -> pd.DataFrame:
+    url = f"{BASE_URL_v3}/analyst-estimates/{ticker}?period={period.value}&apikey={apikey}"
+    field_name = list(map(lambda x: x.value, fields))
+    res = __api_access(url)
+    if len(res) != 0:
+        df = pd.DataFrame(res)
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.set_index('date')
+        df.sort_index(ascending=False, inplace=True)
+        df = df[df.index >= start][-(count):]
+        df = df[field_name]
+        df.rename(columns={x.value: x.name for x in fields}, inplace=True)
+        df.columns = pd.MultiIndex.from_product([[res[0]['symbol']], df.columns])
+    else:
+        df = pd.DataFrame(data=None, columns=field_name)
+        df.index.name = 'date'
+        df.columns = pd.MultiIndex.from_product([[ticker], df.columns])
+    return df
