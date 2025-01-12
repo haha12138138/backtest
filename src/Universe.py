@@ -1,5 +1,5 @@
 from FMP.fmp import *
-
+from fmp_api_access_base import API_KEY
 
 class Stock_Universe:
     """

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from FMP.fmp import *
+from fmp_datatypes import Datapoint_period
 
 
 def rebalance(rebalance_period):

@@ -6,6 +6,8 @@ from FMP.fmp import *
 from FMP.main import stock_database
 from Strategy import Strategy
 from Universe import Stock_Universe
+from fmp_api_access_base import API_KEY
+from fmp_datatypes import Datapoint_period
 
 
 class DataHandler:
@@ -35,11 +37,11 @@ class DataHandler:
                 max_num_needed_for_daily_data = max(max_num_needed_for_daily_data,
                                                     dependency.num_of_data_needed)
             else:
-                if dependency.period == Datapoint_period.annual:
+                if dependency.period.value == Datapoint_period.annual.value:
                     annual_entries.append(dependency.dependence_name)
                     max_num_needed_for_annually_data = max(max_num_needed_for_annually_data,
                                                            dependency.num_of_data_needed)
-                elif dependency.period == Datapoint_period.quarter:
+                elif dependency.period.value == Datapoint_period.quarter.value:
                     quarter_entries.append(dependency.dependence_name)
                     max_num_needed_for_quarterly_data = max(max_num_needed_for_quarterly_data,
                                                             dependency.num_of_data_needed)
