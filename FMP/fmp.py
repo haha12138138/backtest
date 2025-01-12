@@ -1,15 +1,16 @@
+import asyncio
 import datetime
 import logging
 import warnings
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional, Union, Literal, List, Dict
 
 import pandas as pd
 import requests
 from dateutil.relativedelta import relativedelta
 
 from common_util import merge_data_by_date
-from fmp_api_access_base import __api_access, BASE_URL_v3, BASE_URL_v4
+from fmp_api_access_base import __api_access, BASE_URL_v3, BASE_URL_v4, __api_access_async
 from fmp_datatypes import Mkt_index, Price_entry, Income_statement_entry, Financial_ratio_entry, \
     Balance_statement_entry, Cashflow_statement_entry, Financial_statement_period, Forcast_entry
 
@@ -337,3 +338,42 @@ def fmp_get_forecast(ticker: str
         df.index.name = 'date'
         df.columns = pd.MultiIndex.from_product([[ticker], df.columns])
     return df
+
+
+def fmp_get_sec_fillings(
+    ticker: Union[str, List[str]],
+    filling_type: Literal["10-k", "10-q"],
+    apikey: str,
+    prev_n: Union[int, Literal["all"]] = "all"
+) -> Dict[str, Union[List, Dict]]:
+    """
+    This function returns a bunch of SEC filings with some metadata: symbol, acceptedDate, type.
+    It uses the __api_access_async function internally to make asynchronous API calls.
+
+    :param ticker: A single ticker or a list of tickers.
+    :param filling_type: The type of SEC filing ("10-k" or "10-q").
+    :param apikey: The API key for authentication.
+    :param prev_n: A number or "all". Default is "all".
+    :return: A dictionary where keys are tickers and values are the API responses.
+    """
+    if not isinstance(ticker, list):
+        ticker = [ticker]
+
+    # Prepare the URLs for each ticker
+    urls = [
+        f"{BASE_URL_v3}/sec_filings/{t}?type={filling_type}&page=0&apikey={apikey}"
+        for t in ticker
+    ]
+
+    # Define an async function to handle the API calls
+    async def _fetch_all():
+        tasks = [__api_access_async(url) for url in urls]
+        results = await asyncio.gather(*tasks)
+        if prev_n == "all":
+            return {t: result for t, result in zip(ticker, results)}
+        else:
+            return {t: result[0:prev_n] for t, result in zip(ticker, results)}
+
+    # Run the async function in an event loop and wait for it to complete
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(_fetch_all())
